@@ -232,6 +232,21 @@ NS_ASSUME_NONNULL_BEGIN
                              downloadProgress:(nullable void (^)(NSProgress *downloadProgress))downloadProgressBlock
                             completionHandler:(nullable void (^)(NSURLResponse *response, id _Nullable responseObject,  NSError * _Nullable error))completionHandler;
 
+/**
+ 创建用于下载的NSURLSessionDataTask，下载的数据不缓存在内存中，需要设置dataTaskDidReceiveData用于接受下载的数据
+ 
+ Creates an `NSURLSessionDataTask` with the specified request.
+ 
+ @param request The HTTP request for the request.
+ @param uploadProgressBlock A block object to be executed when the upload progress is updated. Note this block is called on the session queue, not the main queue.
+ @param downloadProgressBlock A block object to be executed when the download progress is updated. Note this block is called on the session queue, not the main queue.
+ @param completionHandler A block object to be executed when the task finishes. This block has no return value and takes three arguments: the server response, the response object created by that serializer, and the error that occurred, if any.
+ */
+- (NSURLSessionDataTask *)dataTaskForDownloadWithRequest:(NSURLRequest *)request
+                                          uploadProgress:(nullable void (^)(NSProgress *uploadProgress)) uploadProgressBlock
+                                        downloadProgress:(nullable void (^)(NSProgress *downloadProgress)) downloadProgressBlock
+                                       completionHandler:(nullable void (^)(NSURLResponse *response, id _Nullable responseObject,  NSError * _Nullable error))completionHandler;
+
 ///---------------------------
 /// @name Running Upload Tasks
 ///---------------------------

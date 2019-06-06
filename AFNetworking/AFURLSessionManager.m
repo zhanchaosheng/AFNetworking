@@ -131,6 +131,7 @@ typedef void (^AFURLSessionTaskCompletionHandler)(NSURLResponse *response, id re
 @property (nonatomic, copy) AFURLSessionTaskProgressBlock uploadProgressBlock;
 @property (nonatomic, copy) AFURLSessionTaskProgressBlock downloadProgressBlock;
 @property (nonatomic, copy) AFURLSessionTaskCompletionHandler completionHandler;
+@property (nonatomic, assign) BOOL isDataTaskForDownload; // 是否是用于下载的NSURLSessionDataTask
 @end
 
 @implementation AFURLSessionManagerTaskDelegate
@@ -290,7 +291,9 @@ didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)metrics {
     self.downloadProgress.totalUnitCount = dataTask.countOfBytesExpectedToReceive;
     self.downloadProgress.completedUnitCount = dataTask.countOfBytesReceived;
 
-    [self.mutableData appendData:data];
+    if (!self.isDataTaskForDownload) {
+        [self.mutableData appendData:data];
+    }
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
@@ -637,6 +640,24 @@ static NSString * const AFNSURLSessionTaskDidSuspendNotification = @"com.alamofi
     delegate.downloadProgressBlock = downloadProgressBlock;
 }
 
+- (void)addDelegateForDataTask:(NSURLSessionDataTask *)dataTask
+                isDownloadTask:(BOOL)isDownloadTask
+                uploadProgress:(nullable void (^)(NSProgress *uploadProgress)) uploadProgressBlock
+              downloadProgress:(nullable void (^)(NSProgress *downloadProgress)) downloadProgressBlock
+             completionHandler:(void (^)(NSURLResponse *response, id responseObject, NSError *error))completionHandler
+{
+    AFURLSessionManagerTaskDelegate *delegate = [[AFURLSessionManagerTaskDelegate alloc] initWithTask:dataTask];
+    delegate.manager = self;
+    delegate.completionHandler = completionHandler;
+    delegate.isDataTaskForDownload = isDownloadTask;
+    
+    dataTask.taskDescription = self.taskDescriptionForSessionTasks;
+    [self setDelegate:delegate forTask:dataTask];
+    
+    delegate.uploadProgressBlock = uploadProgressBlock;
+    delegate.downloadProgressBlock = downloadProgressBlock;
+}
+
 - (void)addDelegateForUploadTask:(NSURLSessionUploadTask *)uploadTask
                         progress:(void (^)(NSProgress *uploadProgress)) uploadProgressBlock
                completionHandler:(void (^)(NSURLResponse *response, id responseObject, NSError *error))completionHandler
@@ -779,6 +800,21 @@ static NSString * const AFNSURLSessionTaskDidSuspendNotification = @"com.alamofi
 
     [self addDelegateForDataTask:dataTask uploadProgress:uploadProgressBlock downloadProgress:downloadProgressBlock completionHandler:completionHandler];
 
+    return dataTask;
+}
+
+- (NSURLSessionDataTask *)dataTaskForDownloadWithRequest:(NSURLRequest *)request
+                                          uploadProgress:(nullable void (^)(NSProgress *uploadProgress)) uploadProgressBlock
+                                        downloadProgress:(nullable void (^)(NSProgress *downloadProgress)) downloadProgressBlock
+                                       completionHandler:(nullable void (^)(NSURLResponse *response, id _Nullable responseObject,  NSError * _Nullable error))completionHandler {
+    
+    __block NSURLSessionDataTask *dataTask = nil;
+    url_session_manager_create_task_safely(^{
+        dataTask = [self.session dataTaskWithRequest:request];
+    });
+    
+    [self addDelegateForDataTask:dataTask isDownloadTask:YES uploadProgress:uploadProgressBlock downloadProgress:downloadProgressBlock completionHandler:completionHandler];
+    
     return dataTask;
 }
 
